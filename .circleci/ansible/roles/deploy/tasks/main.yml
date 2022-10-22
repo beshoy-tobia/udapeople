@@ -1,0 +1,26 @@
+---
+
+  - name: "Creaate backend app directory"
+    file:
+      path: ~/backend-app
+      state: directory
+
+  - name: "copy compressed artifact"
+    unarchive:
+      src: artifact.tar.gz
+      dest: ~/backend-app
+
+
+  - name: "installing node dependancies"
+    shell: |
+      cd ~/backend-app
+      npm i
+
+
+  - name: "Execute node app"
+    shell: |
+      cd ~/backend-app/dist
+      pm2 stop default
+      pm2 start main.js
+
+      
