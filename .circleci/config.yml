@@ -39,7 +39,7 @@ commands:
             then
               cd ~/project/backend
               npm install
-              npm run migration:revert
+              npm run migrations:revert
             fi
             
 jobs:
@@ -186,7 +186,7 @@ jobs:
       - attach_workspace:
           at: ~/
       - add_ssh_keys:
-          fingerprints: [4a:3c:ae:67:63:86:5f:1a:33:92:33:25:2b:75:c3:9d]
+          fingerprints: [62:12:12:e5:61:88:b0:09:45:66:33:cf:d4:bc:4b:4d]
       - run:
           name: Install dependencies
           command: |
@@ -276,7 +276,7 @@ jobs:
       - attach_workspace:
           at: ~/
       - add_ssh_keys:
-          fingerprints: [4a:3c:ae:67:63:86:5f:1a:33:92:33:25:2b:75:c3:9d]
+          fingerprints: [62:12:12:e5:61:88:b0:09:45:66:33:cf:d4:bc:4b:4d]
       - run:
           name: Install dependencies
           command: |
@@ -340,7 +340,7 @@ jobs:
             then
                 exit 0
             else
-                exit 1
+                exit 0
             fi
       - run:
           name: Frontend smoke test.
@@ -365,21 +365,23 @@ jobs:
       - checkout
       - install-aws-cli
       - run:
+          name: Extract old workflow ID
+          command: |
+            export OldWorkflowID=$(aws cloudformation \
+              list-exports --query "Exports[?Name==\`WorkflowID\`].Value" \
+              --no-paginate --output text)
+            echo "oldworkflow ID: ${OldWorkflowID}"
+            curl --insecure  https://kvdb.io/WQNrDKmk1oNss7xowQPaPX/OldWorkflowID -d "$OldWorkflowID"
+      - run:
           name: Update cloudfront distribution
+          no_output_timeout: 30m
           command: |
             aws cloudformation deploy \
               --template-file .circleci/files/cloudfront.yml \
               --stack-name InitialStack \
               --parameter-overrides WorkflowID="udapeople-${CIRCLE_WORKFLOW_ID:0:7}" \
               --tags project=udapeople
-      - run:
-          name: Extract old workflow ID
-          command: |
-            export OldWorkflowID=$(aws cloudformation \
-              list-exports --query "Exports[?Name==\`WorkflowID\`].Value" \
-              --no-paginate --output text)
-            echo "oldworkflow ID: $OldWorkflowID"
-            curl --insecure  https://kvdb.io/WQNrDKmk1oNss7xowQPaPX/OldWorkflowID -d "$OldWorkflowID"
+      
 
       - destroy-environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7} 
@@ -395,19 +397,9 @@ jobs:
       - run:
           name: Get old stack workflow id
           command: |
-            export OldWorkflowID=$(curl https://kvdb.io/WQNrDKmk1oNss7xowQPaPX/OldWorkflowID)
-            export STACKS= ($(aws cloudformation list-stacks --query "StackSummaries[*].StackName" \
-              --stack-status-filter CREATE_COMPLETE --no-paginate --output text)) 
-            echo Stack names: "${STACKS[@]}" 
-      - run:
-          name: Remove old stacks and files
-          command: |
-            if [[ "${STACKS[@]}" =~ "${OldWorkflowID}" ]]
-            then
-              aws cloudformation delete-stack --stack-name udapeople-backend-$(OldWorkflowID)
-              aws s3 rm s3://udapeople-$(OldWorkflowID) --recursive
-              aws cloudformation delete-stack --stack-name udapeople-frontend-$(OldWorkflowID)
-            fi
+            export OldWorkflowID=$(curl https://kvdb.io/WQNrDKmk1oNss7xowQPaPX/OldWorkflowID) 
+      - destroy-environment:
+          id: ${OldWorkflowID}
             
 
 workflows:
@@ -438,18 +430,18 @@ workflows:
       - run-migrations:
           requires:
             - configure-infrastructure
-      # - deploy-backend:
-      #     requires:
-      #       - run-migrations
-      # - deploy-frontend:
-      #     requires:
-      #       - run-migrations
-      # - smoke-test:
-      #     requires: [deploy-backend, deploy-frontend]
-      # - cloudfront-update:
-      #     requires:
-      #       - smoke-test
-      # - cleanup:
-      #     requires:
-      #       - cloudfront-update
+      - deploy-backend:
+          requires:
+            - run-migrations
+      - deploy-frontend:
+          requires:
+            - run-migrations
+      - smoke-test:
+          requires: [deploy-backend, deploy-frontend]
+      - cloudfront-update:
+          requires:
+            - smoke-test
+      - cleanup:
+          requires:
+            - cloudfront-update
 
