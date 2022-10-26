@@ -133,10 +133,7 @@ jobs:
             cd backend
             npm install
             npm audit fix --audit-level=critical --force
-            npm update kind-of --depth 14
-            npm update path-parse --depth 3
-            npm update mkdirp --depth 6
-            npm install --save-dev webpack@5.74.0
+            npm audit fix --audit-level=critical --force
             npm audit --audit-level=critical 
 
   deploy-infrastructure:
@@ -397,7 +394,8 @@ jobs:
       - run:
           name: Get old stack workflow id
           command: |
-            export OldWorkflowID=$(curl https://kvdb.io/WQNrDKmk1oNss7xowQPaPX/OldWorkflowID) 
+            export OldWorkflowID=$(curl --insecure https://kvdb.io/WQNrDKmk1oNss7xowQPaPX/OldWorkflowID) 
+            exit 1
       - destroy-environment:
           id: ${OldWorkflowID}
             
